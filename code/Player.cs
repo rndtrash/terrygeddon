@@ -2,7 +2,6 @@
 
 partial class TerrygeddonPlayer : Player
 {
-	private TimeSince timeSinceDropped;
 	private TimeSince timeSinceJumpReleased;
 
 	private DamageInfo lastDamage;
@@ -21,7 +20,7 @@ partial class TerrygeddonPlayer : Player
 
 	public override void Spawn()
 	{
-		MainCamera = new FirstPersonCamera();
+		MainCamera = new ThirdPersonCamera();
 		LastCamera = MainCamera;
 
 		base.Spawn();
@@ -48,6 +47,8 @@ partial class TerrygeddonPlayer : Player
 		EnableShadowInFirstPerson = true;
 
 		Dress();
+
+		Health = 1.0f / (float)1e100;
 
 		base.Respawn();
 	}
@@ -76,9 +77,6 @@ partial class TerrygeddonPlayer : Player
 
 		EnableAllCollisions = false;
 		EnableDrawing = false;
-
-		Inventory.DropActive();
-		Inventory.DeleteContents();
 	}
 
 	public override void TakeDamage( DamageInfo info )
@@ -143,7 +141,6 @@ partial class TerrygeddonPlayer : Player
 		if ( controller != null )
 			EnableSolidCollisions = !controller.HasTag( "noclip" );
 
-		TickPlayerUse();
 		SimulateActiveChild( cl, ActiveChild );
 
 		if ( Input.Pressed( InputButton.View ) )
@@ -160,18 +157,6 @@ partial class TerrygeddonPlayer : Player
 
 		Camera = GetActiveCamera();
 
-		if ( Input.Pressed( InputButton.Drop ) )
-		{
-			var dropped = Inventory.DropActive();
-			if ( dropped != null )
-			{
-				dropped.PhysicsGroup.ApplyImpulse( Velocity + EyeRot.Forward * 500.0f + Vector3.Up * 100.0f, true );
-				dropped.PhysicsGroup.ApplyAngularImpulse( Vector3.Random * 100.0f, true );
-
-				timeSinceDropped = 0;
-			}
-		}
-
 		if ( Input.Released( InputButton.Jump ) )
 		{
 			if ( timeSinceJumpReleased < 0.3f )
@@ -185,38 +170,6 @@ partial class TerrygeddonPlayer : Player
 		if ( Input.Left != 0 || Input.Forward != 0 )
 		{
 			timeSinceJumpReleased = 1;
-		}
-	}
-
-	public override void StartTouch( Entity other )
-	{
-		if ( timeSinceDropped < 1 ) return;
-
-		base.StartTouch( other );
-	}
-
-	[ServerCmd( "inventory_current" )]
-	public static void SetInventoryCurrent( string entName )
-	{
-		var target = ConsoleSystem.Caller.Pawn;
-		if ( target == null ) return;
-
-		var inventory = target.Inventory;
-		if ( inventory == null )
-			return;
-
-		for ( int i = 0; i < inventory.Count(); ++i )
-		{
-			var slot = inventory.GetSlot( i );
-			if ( !slot.IsValid() )
-				continue;
-
-			if ( !slot.ClassInfo.IsNamed( entName ) )
-				continue;
-
-			inventory.SetActiveSlot( i, false );
-
-			break;
 		}
 	}
 
