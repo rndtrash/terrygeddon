@@ -1,7 +1,9 @@
 ﻿using Sandbox;
 
-partial class SandboxPlayer
+partial class TerrygeddonPlayer
 {
+	public new float Health = 1.0f / (float) 1e100;
+
 	public bool IsUseDisabled()
 	{
 		return ActiveChild is IUse use && use.IsUsable( this );

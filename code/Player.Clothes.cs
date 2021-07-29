@@ -1,6 +1,6 @@
 ﻿using Sandbox;
 
-partial class SandboxPlayer
+partial class TerrygeddonPlayer
 {
 	ModelEntity pants;
 	ModelEntity jacket;

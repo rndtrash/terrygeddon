@@ -1,6 +1,6 @@
 ﻿using Sandbox;
 
-partial class SandboxPlayer : Player
+partial class TerrygeddonPlayer : Player
 {
 	private TimeSince timeSinceDropped;
 	private TimeSince timeSinceJumpReleased;
@@ -15,9 +15,8 @@ partial class SandboxPlayer : Player
 
 	public ICamera LastCamera { get; set; }
 
-	public SandboxPlayer()
+	public TerrygeddonPlayer()
 	{
-		Inventory = new Inventory( this );
 	}
 
 	public override void Spawn()
@@ -49,12 +48,6 @@ partial class SandboxPlayer : Player
 		EnableShadowInFirstPerson = true;
 
 		Dress();
-
-		Inventory.Add( new PhysGun(), true );
-		Inventory.Add( new GravGun() );
-		Inventory.Add( new Tool() );
-		Inventory.Add( new Pistol() );
-		Inventory.Add( new Flashlight() );
 
 		base.Respawn();
 	}

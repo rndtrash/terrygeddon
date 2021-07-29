@@ -55,7 +55,7 @@ public class CarCamera : Camera
 		var pawn = Local.Pawn;
 		if ( pawn == null ) return;
 
-		var car = (pawn as SandboxPlayer)?.Vehicle as CarEntity;
+		var car = (pawn as TerrygeddonPlayer)?.Vehicle as CarEntity;
 		if ( !car.IsValid() ) return;
 
 		var body = car.PhysicsBody;
@@ -156,7 +156,7 @@ public class CarCamera : Camera
 		var pawn = Local.Pawn;
 		if ( pawn == null ) return;
 
-		var car = (pawn as SandboxPlayer)?.Vehicle as CarEntity;
+		var car = (pawn as TerrygeddonPlayer)?.Vehicle as CarEntity;
 		if ( !car.IsValid() ) return;
 
 		if ( input.Pressed( InputButton.View ) )

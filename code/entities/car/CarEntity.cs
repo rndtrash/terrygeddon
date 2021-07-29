@@ -1,6 +1,5 @@
 ﻿using Sandbox;
 using System;
-using System.Collections.Generic;
 
 [Library( "ent_car", Title = "Car", Spawnable = true )]
 public partial class CarEntity : Prop, IUse
@@ -169,7 +168,7 @@ public partial class CarEntity : Prop, IUse
 	{
 		base.OnDestroy();
 
-		if ( driver is SandboxPlayer player )
+		if ( driver is TerrygeddonPlayer player )
 		{
 			RemoveDriver( player );
 		}
@@ -183,7 +182,7 @@ public partial class CarEntity : Prop, IUse
 	[Event.Tick.Server]
 	protected void Tick()
 	{
-		if ( driver is SandboxPlayer player )
+		if ( driver is TerrygeddonPlayer player )
 		{
 			if ( player.LifeState != LifeState.Alive || player.Vehicle != this )
 			{
@@ -203,7 +202,7 @@ public partial class CarEntity : Prop, IUse
 
 			if ( Input.Pressed( InputButton.Use ) )
 			{
-				if ( owner.Pawn is SandboxPlayer player && !player.IsUseDisabled() )
+				if ( owner.Pawn is TerrygeddonPlayer player && !player.IsUseDisabled() )
 				{
 					RemoveDriver( player );
 
@@ -286,7 +285,7 @@ public partial class CarEntity : Prop, IUse
 		bool canAirControl = false;
 
 		var v = rotation * localVelocity.WithZ( 0 );
-		var vDelta = MathF.Pow((v.Length / 1000.0f).Clamp( 0, 1 ), 5.0f).Clamp(0, 1);
+		var vDelta = MathF.Pow( (v.Length / 1000.0f).Clamp( 0, 1 ), 5.0f ).Clamp( 0, 1 );
 		if ( vDelta < 0.01f ) vDelta = 0;
 
 		if ( debug_car )
@@ -295,7 +294,7 @@ public partial class CarEntity : Prop, IUse
 			DebugOverlay.Line( body.MassCenter, body.MassCenter + v.Normal * 100, Color.Green, 0, false );
 		}
 
-		var angle = ( rotation.Forward.Normal * MathF.Sign( localVelocity.x )).Normal.Dot( v.Normal ).Clamp( 0.0f, 1.0f );
+		var angle = (rotation.Forward.Normal * MathF.Sign( localVelocity.x )).Normal.Dot( v.Normal ).Clamp( 0.0f, 1.0f );
 		angle = angle.LerpTo( 1.0f, 1.0f - vDelta );
 		grip = grip.LerpTo( angle, 1.0f - MathF.Pow( 0.001f, dt ) );
 
@@ -448,7 +447,7 @@ public partial class CarEntity : Prop, IUse
 		wheel3.LocalRotation = wheelRotBackLeft;
 	}
 
-	private void RemoveDriver( SandboxPlayer player )
+	private void RemoveDriver( TerrygeddonPlayer player )
 	{
 		driver = null;
 		player.Vehicle = null;
@@ -466,7 +465,7 @@ public partial class CarEntity : Prop, IUse
 
 	public bool OnUse( Entity user )
 	{
-		if ( user is SandboxPlayer player && player.Vehicle == null && timeSinceDriverLeft > 1.0f )
+		if ( user is TerrygeddonPlayer player && player.Vehicle == null && timeSinceDriverLeft > 1.0f )
 		{
 			player.Vehicle = this;
 			player.VehicleController = new CarController();
@@ -504,7 +503,7 @@ public partial class CarEntity : Prop, IUse
 		if ( !body.IsValid() )
 			return;
 
-		if ( other is SandboxPlayer player && player.Vehicle == null )
+		if ( other is TerrygeddonPlayer player && player.Vehicle == null )
 		{
 			var speed = body.Velocity.Length;
 			var forceOrigin = Position + Rotation.Down * Rand.Float( 20, 30 );
@@ -529,7 +528,7 @@ public partial class CarEntity : Prop, IUse
 		if ( !IsServer )
 			return;
 
-		if ( eventData.Entity is SandboxPlayer player && player.Vehicle != null )
+		if ( eventData.Entity is TerrygeddonPlayer player && player.Vehicle != null )
 		{
 			return;
 		}
