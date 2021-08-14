@@ -34,7 +34,7 @@ public partial class TerrygeddonScoreboard : Panel
 	{
 		base.Tick();
 
-		SetClass( "open", Input.Down( InputButton.Score ) );
+		SetClass( "open", Input.Down( InputButton.Score ) || (Local.Pawn as TerrygeddonPlayer).Team == TerrygeddonPlayer.PlayerTeam.Ready );
 	}
 
 

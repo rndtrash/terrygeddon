@@ -1,7 +1,20 @@
 ﻿using Sandbox;
 
-partial class TerrygeddonPlayer : Player
+public partial class TerrygeddonPlayer : Player
 {
+	public enum PlayerTeam
+	{
+		Spectator,
+		Selecting,
+		Ready,
+		InGame,
+		Eliminated,
+		Dead,
+		Finished
+	};
+
+	[Net] public PlayerTeam Team { get; protected set; } = PlayerTeam.Spectator;
+
 	private TimeSince timeSinceJumpReleased;
 
 	private DamageInfo lastDamage;
@@ -16,6 +29,12 @@ partial class TerrygeddonPlayer : Player
 
 	public TerrygeddonPlayer()
 	{
+	}
+
+	public void ChangeTeam(PlayerTeam newTeam)
+	{
+		// TODO: change the hud and player controller depending on the state
+		Team = newTeam;
 	}
 
 	public override void Spawn()
@@ -48,9 +67,15 @@ partial class TerrygeddonPlayer : Player
 
 		Dress();
 
-		Health = 1.0f / (float)1e100;
-
 		base.Respawn();
+
+		Health = 1.0f;
+
+		var c = new CarEntity();
+		c.Position = Position;
+		c.AddDriver( this );
+
+		PlaySound( "tg.bg.pregame" );
 	}
 
 	public override void OnKilled()

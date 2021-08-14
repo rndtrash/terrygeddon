@@ -1,8 +1,9 @@
 ﻿using Sandbox;
 using System;
+using System.Threading.Tasks;
 
-[Library( "ent_car", Title = "Car", Spawnable = true )]
-public partial class CarEntity : Prop, IUse
+[Library( "tg_car", Title = "Car", Spawnable = true )]
+public partial class CarEntity : Prop
 {
 	[ConVar.Replicated( "debug_car" )]
 	public static bool debug_car { get; set; } = false;
@@ -26,7 +27,10 @@ public partial class CarEntity : Prop, IUse
 	private float airRoll;
 	private float airTilt;
 	private float grip;
-	private TimeSince timeSinceDriverLeft;
+
+	private RealTimeSince lastReset; // TODO: 
+	[Net] private bool goingToExplode { get; set; } = false;
+	private float explosionHP = 5.0f;
 
 	[Net] private float WheelSpeed { get; set; }
 	[Net] private float TurnDirection { get; set; }
@@ -64,7 +68,7 @@ public partial class CarEntity : Prop, IUse
 		backRight = new CarWheel( this );
 	}
 
-	[Net] public Player driver { get; private set; }
+	[Net] public TerrygeddonPlayer driver { get; private set; }
 
 	private ModelEntity chassis_axle_rear;
 	private ModelEntity chassis_axle_front;
@@ -164,6 +168,19 @@ public partial class CarEntity : Prop, IUse
 		}
 	}
 
+	protected override void UpdatePropData( Model model )
+	{
+		Host.AssertServer();
+
+		var propInfo = model.GetPropData();
+		Health = propInfo.Health;
+
+		//
+		// If health is unset, set it to 100
+		//
+		if ( Health <= 0 )
+			Health = 100;
+	}
 	protected override void OnDestroy()
 	{
 		base.OnDestroy();
@@ -193,22 +210,19 @@ public partial class CarEntity : Prop, IUse
 
 	public override void Simulate( Client owner )
 	{
-		if ( owner == null ) return;
-		if ( !IsServer ) return;
+		DebugOverlay.ScreenText( $"{Health} {LifeState}" );
+		if ( owner == null || !IsServer || goingToExplode ) return;
+
+		if ( Health <= explosionHP )
+		{
+			RemoveDriver( driver );
+			_ = AcalariBomba();
+			return;
+		}
 
 		using ( Prediction.Off() )
 		{
 			currentInput.Reset();
-
-			if ( Input.Pressed( InputButton.Use ) )
-			{
-				if ( owner.Pawn is TerrygeddonPlayer player && !player.IsUseDisabled() )
-				{
-					RemoveDriver( player );
-
-					return;
-				}
-			}
 
 			currentInput.throttle = (Input.Down( InputButton.Forward ) ? 1 : 0) + (Input.Down( InputButton.Back ) ? -1 : 0);
 			currentInput.turning = (Input.Down( InputButton.Left ) ? 1 : 0) + (Input.Down( InputButton.Right ) ? -1 : 0);
@@ -447,7 +461,7 @@ public partial class CarEntity : Prop, IUse
 		wheel3.LocalRotation = wheelRotBackLeft;
 	}
 
-	private void RemoveDriver( TerrygeddonPlayer player )
+	public void RemoveDriver( TerrygeddonPlayer player )
 	{
 		driver = null;
 		player.Vehicle = null;
@@ -458,14 +472,12 @@ public partial class CarEntity : Prop, IUse
 		player.PhysicsBody.Enabled = true;
 		player.PhysicsBody.Position = player.Position;
 
-		timeSinceDriverLeft = 0;
-
 		ResetInput();
 	}
 
-	public bool OnUse( Entity user )
+	public void AddDriver( Entity user )
 	{
-		if ( user is TerrygeddonPlayer player && player.Vehicle == null && timeSinceDriverLeft > 1.0f )
+		if ( user is TerrygeddonPlayer player && player.Vehicle == null )
 		{
 			player.Vehicle = this;
 			player.VehicleController = new CarController();
@@ -479,13 +491,6 @@ public partial class CarEntity : Prop, IUse
 
 			driver = player;
 		}
-
-		return true;
-	}
-
-	public bool IsUsable( Entity user )
-	{
-		return driver == null;
 	}
 
 	public override void StartTouch( Entity other )
@@ -554,6 +559,118 @@ public partial class CarEntity : Prop, IUse
 					.WithAttacker( driver != null ? driver : this, driver != null ? this : null )
 					.WithPosition( eventData.Pos )
 					.WithForce( eventData.PreVelocity ) );
+			}
+		}
+	}
+
+	public override void OnKilled()
+	{
+		base.OnKilled();
+
+		_ = AcalariBomba();
+	}
+
+	private async Task AcalariBomba()
+	{
+		if ( goingToExplode )
+			return;
+		goingToExplode = true;
+
+		if (Health > 0)
+			await Task.DelaySeconds( Health / explosionHP * 5 );
+		if ( LifeState == LifeState.Dead || Health > explosionHP )
+		{
+			goingToExplode = false;
+			return;
+		}
+		OnExplosion();
+
+		Delete();
+	}
+
+	private void OnExplosion()
+	{
+		LifeState = LifeState.Dead;
+
+		var model = GetModel();
+		if ( model == null || model.IsError )
+			return;
+
+		if ( !PhysicsBody.IsValid() )
+			return;
+
+		var explosionBehavior = new ModelExplosionBehavior() { Radius = 150.0f, Force = 200.0f, Damage = 50.0f }; //model.GetExplosionBehavior();
+
+		if ( !string.IsNullOrWhiteSpace( explosionBehavior.Sound ) )
+		{
+			Sound.FromWorld( explosionBehavior.Sound, PhysicsBody.MassCenter );
+		}
+		else
+		{
+			// TODO: Replace with something else
+			Sound.FromWorld( "rust_pumpshotgun.shootdouble", PhysicsBody.MassCenter );
+		}
+
+		if ( !string.IsNullOrWhiteSpace( explosionBehavior.Effect ) )
+		{
+			Particles.Create( explosionBehavior.Effect, PhysicsBody.MassCenter );
+		}
+		else
+		{
+			Particles.Create( "particles/explosion", PhysicsBody.MassCenter );
+		}
+
+		if ( explosionBehavior.Radius > 0.0f )
+		{
+			var sourcePos = PhysicsBody.MassCenter;
+			var overlaps = Physics.GetEntitiesInSphere( sourcePos, explosionBehavior.Radius );
+
+			if ( debug_prop_explosion )
+				DebugOverlay.Sphere( sourcePos, explosionBehavior.Radius, Color.Orange, true, 5 );
+
+			foreach ( var overlap in overlaps )
+			{
+				if ( overlap is not ModelEntity ent || !ent.IsValid() )
+					continue;
+
+				if ( ent.LifeState != LifeState.Alive )
+					continue;
+
+				if ( !ent.PhysicsBody.IsValid() )
+					continue;
+
+				if ( ent.IsWorld )
+					continue;
+
+				var targetPos = ent.PhysicsBody.MassCenter;
+
+				var dist = Vector3.DistanceBetween( sourcePos, targetPos );
+				if ( dist > explosionBehavior.Radius )
+					continue;
+
+				var tr = Trace.Ray( sourcePos, targetPos )
+					.Ignore( this )
+					.WorldOnly()
+					.Run();
+
+				if ( tr.Fraction < 1.0f )
+				{
+					if ( debug_prop_explosion )
+						DebugOverlay.Line( sourcePos, tr.EndPos, Color.Red, 5, true );
+
+					continue;
+				}
+
+				if ( debug_prop_explosion )
+					DebugOverlay.Line( sourcePos, targetPos, 5, true );
+
+				var distanceMul = 1.0f - Math.Clamp( dist / explosionBehavior.Radius, 0.0f, 1.0f );
+				var damage = explosionBehavior.Damage * distanceMul;
+				var force = (explosionBehavior.Force * distanceMul) * ent.PhysicsBody.Mass;
+				var forceDir = (targetPos - sourcePos).Normal;
+
+				ent.TakeDamage( DamageInfo.Explosion( sourcePos, forceDir * force, damage )
+					.WithAttacker( this ) );
 			}
 		}
 	}

@@ -13,9 +13,9 @@ public class Health : Panel
 
 	public override void Tick()
 	{
-		var player = Local.Pawn;
-		if ( player == null ) return;
+		var player = Local.Pawn as TerrygeddonPlayer;
+		if ( player == null || player.Vehicle == null ) return;
 
-		Label.Text = $"{player.Health.CeilToInt()}";
+		Label.Text = $"{player.Vehicle.Health.CeilToInt()}";
 	}
 }
