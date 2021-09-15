@@ -27,8 +27,14 @@ public partial class TerrygeddonPlayer : Player
 
 	public ICamera LastCamera { get; set; }
 
+	public Clothing.Container Clothing = new();
 	public TerrygeddonPlayer()
 	{
+	}
+
+	public TerrygeddonPlayer(Client cl) : this()
+	{
+		Clothing.LoadFromClient( cl );
 	}
 
 	public void ChangeTeam(PlayerTeam newTeam)
@@ -65,7 +71,7 @@ public partial class TerrygeddonPlayer : Player
 		EnableHideInFirstPerson = true;
 		EnableShadowInFirstPerson = true;
 
-		Dress();
+		Clothing.DressEntity( this );
 
 		base.Respawn();
 

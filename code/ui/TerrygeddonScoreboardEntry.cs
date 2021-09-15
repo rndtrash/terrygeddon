@@ -24,7 +24,7 @@ public partial class TerrygeddonScoreboardEntry : Panel
 		PlayerName.Text = entry.GetString( "name" );
 		Ping.Text = entry.Get<int>( "ping", 0 ).ToString();
 
-		Log.Info( $"{Local.Client != null && entry.Get<ulong>( "steamid", 0 ) == Local.Client.SteamId}" );
+		// FIXME: Local.Client is null
 		SetClass( "me", Local.Client != null && entry.Get<ulong>( "steamid", 0 ) == Local.Client.SteamId );
 	}
 }

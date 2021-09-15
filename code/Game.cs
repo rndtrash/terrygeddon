@@ -1,23 +1,98 @@
 ﻿using Sandbox;
+using System.Collections.Generic;
 
-partial class TerrygeddonGame : Game
+public partial class TerrygeddonGame : Game
 {
+	public enum GameState
+	{
+		None,
+		WaitingForPlayers,
+		PreGame,
+		InGame,
+		PostGame
+	}
+
+	public GameState State
+	{
+		get
+		{
+			return _state;
+		}
+
+		set
+		{
+			Log.Info( $"Changing game state to {value}..." );
+
+			if ( _state == value )
+				return;
+
+			_state = value;
+			var requiresRespawn = false;
+			switch ( _state )
+			{
+				case GameState.WaitingForPlayers:
+					_currentSpawnAction = null;
+					requiresRespawn = true;
+					HUDEntity.SetUIStateRPC( TerrygeddonHud.UIState.WaitingForPlayers );
+					break;
+				case GameState.PreGame:
+					requiresRespawn = false;
+					HUDEntity.SetUIStateRPC( TerrygeddonHud.UIState.PreGame );
+					break;
+				case GameState.InGame:
+					_currentSpawnAction = PlayerSpawnAction;
+					requiresRespawn = true;
+					HUDEntity.SetUIStateRPC( TerrygeddonHud.UIState.InGame );
+					break;
+				case GameState.PostGame:
+					requiresRespawn = false;
+					HUDEntity.SetUIStateRPC( TerrygeddonHud.UIState.PostGame );
+					break;
+				default:
+					Log.Error( $"FIXME: Add {_state}" );
+					break;
+			}
+
+			if ( requiresRespawn )
+				RespawnAllPawns();
+		}
+	}
+
+	[ConVar.Replicated( "tg_gamestate" )]
+	public static GameState GameStateConVar
+	{
+		get
+		{
+			return (Current as TerrygeddonGame).State;
+		}
+	}
+
+	public TerrygeddonHud HUDEntity { get; private set; }
+
+	delegate void ClientAction( Client cl );
+
+	private GameState _state = GameState.None;
+	private Dictionary<int, Client> _clients = new();
+	private ClientAction _currentSpawnAction;
+
 	public TerrygeddonGame()
 	{
 		if ( IsServer )
 		{
-			// Create the HUD
-			_ = new TerrygeddonHud();
+			HUDEntity = new TerrygeddonHud();
+
+			State = GameState.WaitingForPlayers;
 		}
 	}
 
 	public override void ClientJoined( Client cl )
 	{
 		base.ClientJoined( cl );
-		var player = new TerrygeddonPlayer();
-		player.Respawn();
 
-		cl.Pawn = player;
+		_clients.Add( cl.UserId, cl );
+
+		if ( cl.Pawn != null && _currentSpawnAction != null )
+			_currentSpawnAction( cl );
 	}
 
 	protected override void OnDestroy()
@@ -102,6 +177,28 @@ partial class TerrygeddonGame : Game
 				Log.Info( "Noclip Mode On" );
 				basePlayer.DevController = new NoclipController();
 			}
+		}
+	}
+
+	protected void PlayerSpawnAction( Client cl )
+	{
+		var player = new TerrygeddonPlayer( cl );
+		player.Respawn();
+
+		cl.Pawn = player;
+	}
+
+	protected void RespawnAllPawns()
+	{
+		foreach ( var cl in _clients )
+		{
+			var pawn = cl.Value.Pawn;
+
+			if ( pawn != null )
+				pawn.Delete();
+
+			if ( _currentSpawnAction != null )
+				_currentSpawnAction( cl.Value );
 		}
 	}
 }
